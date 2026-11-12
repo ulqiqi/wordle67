@@ -133,7 +133,7 @@ def spoil(s):
 # --------------------------------------------------------------- messages
 def answers_message(number, date, target, found):
     n = len(found)
-    head = (f"**Wordle {'#' + str(number) if number else ''} ({date:%d/%m/%Y}) - "
+    head = (f"**Wordle {'#' + str(number) + ' ' if number else ''}({date:%d/%m/%Y}) - "
             f"67 is possible!** {n} colour combination{'s' if n > 1 else ''} "
             f"work{'' if n > 1 else 's'}. Answer: {spoil(target.upper())}")
     blocks = [head]
@@ -181,7 +181,18 @@ def main():
                     help="send the weekly check now, whatever the day")
     ap.add_argument("--dry-run", action="store_true",
                     help="print the messages instead of sending them")
+    ap.add_argument("--word", help="test with this answer instead of asking the "
+                                   "API (the run is not saved in the history)")
+    ap.add_argument("--daily-at", type=int, metavar="HOUR",
+                    help="for an hourly cron job: only run once per day, at or "
+                         "after HOUR (Paris time); later runs that day do nothing")
     args = ap.parse_args()
+
+    if args.daily_at is not None:
+        now = dt.datetime.now(TZ)
+        done = {r["date"] for r in load_state()["runs"]}
+        if now.hour < args.daily_at or now.date().isoformat() in done:
+            return 0                     # too early, or already ran today
 
     webhook = os.environ.get("DISCORD_WEBHOOK_URL", "")
     if not webhook and not args.dry_run:
@@ -194,7 +205,10 @@ def main():
     message = None
 
     try:
-        number, target = fetch_answer(today)
+        if args.word:
+            number, target = None, args.word.strip().lower()
+        else:
+            number, target = fetch_answer(today)
         try:
             words = wordle67.load(str(WORDS))
         except SystemExit as e:         # wordle67.load exits on a missing file
@@ -211,7 +225,8 @@ def main():
 
     state = load_state()
     state["runs"] = [r for r in state["runs"] if r["date"] != run["date"]] + [run]
-    save_state(state)
+    if not args.word:                    # test runs don't touch the history
+        save_state(state)
 
     send = lambda text: post_discord(webhook, text, args.dry_run)
     if message:
