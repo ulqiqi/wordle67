@@ -40,3 +40,5 @@ curl -o words.txt https://raw.githubusercontent.com/tabatkins/wordle-list/main/w
 ## Credits
 
 The idea came from a Twitter post, which led me to [this Reddit post](https://www.reddit.com/r/wordle/comments/1uxk3hi/67/).
+
+Made with [Claude](https://claude.ai).
